@@ -89,3 +89,4 @@ roiStr = [num2str(indMax - 1),'rh']; % -1 is for conversion from Matlab to Frees
 plotDataRdm(rootData,subjects,'GLM2','xRun','relationalStructure',roiStr,fwhm)
 plotGardnerAltman(rootData,subjects,'GLM2','xRun','surf','relationalStructure',roiStr,fwhm)
 
+ 
