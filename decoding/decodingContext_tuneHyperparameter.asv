@@ -1,0 +1,95 @@
+clear
+
+root = '/vols/Scratch/mgarvert/ManyMaps/imagingData';
+
+% currently excluding Subj_10 becasue in runs 3 and 4 has less than 136 trials
+subs = {'1','2','3','4','5','6','7','8','9','11','12','13','14',...
+    '16','19','20','21','22','23','24','25'};
+
+mask =  'vmPFC_alon_2mm';
+decodingDataDir = fullfile(root,'decoding','data',mask);
+
+corr_irrelScore_dIrrel = nan(length(subs),2);
+nLambda = 2%20;
+lambda = logspace(10^-5,10^5,nLambda);
+accuracy = nan(length(subs),2,4,3,nLambda); % nSubs x nSess x nRuns x nRegularisationTypes x nHyperparameterValues
+
+for  iRegulType = 1:3 % ridge, elasticNet, lasso
+    for iLambda = 1:nLambda
+        for iSub =1:length(subs)
+            subj = ['Subj_' subs{iSub}];
+            for iSess=1:2
+                sess= ['session_' int2str(iSess)];
+                spmDir = fullfile(root,subj,sess,'1stLevel','design_401_noSmooth');
+
+                % Load your data, into variable D
+                load(fullfile(decodingDataDir,[subj '_' sess '.mat']));
+                [nVoxels, nTrials, nRuns] = size(D);
+
+                % load labels (loading variable 'data')
+                labels = nan(nTrials,nRuns);
+                stayTrials = false(nTrials,nRuns); % logical array
+                load(strtrim(ls(['/vols/Scratch/mgarvert/ManyMaps/scan_1.1/datafiles/' subj '/*_' sess,'/data_',subj(6:end),'_',sess(end),'.mat'])))
+
+                for iRun=1:nRuns
+                    objTr = data.scan{iRun}; % object trials
+                    % get labels - contexts
+                    labels(:,iRun) = objTr.map';
+                end
+
+                clear data
+
+                % Assuming you have your data stored in 'D' and labels in 'labels'
+
+                %%
+
+                % Cross-validation over runs
+                for iRun = 1:nRuns
+                    % Create training and testing sets
+                    training_data = (reshape(D(:,:,[1:iRun-1, iRun+1:end]),[nVoxels, nTrials * (nRuns-1)]))'; % nTrials x nVox
+                    training_labels = reshape(labels(:, [1:iRun-1, iRun+1:end]), [], 1);
+
+                    testing_data = (squeeze(D(:,:,iRun)))'; % nTrials x nVox
+                    testing_labels = labels(:, iRun);
+
+                    % Train the classifier (e.g., linear SVM)
+                    try
+                        if iRegulType==1 % ridge regression
+                            classifier = fitclinear(training_data, training_labels,'Learner', 'logistic', 'Regularization', 'ridge','Solver','lbfgs','Lambda', lambda(iLambda)); % transpose so that it's nObservations x nPredictors, i.e. nTrials x nVox
+                            [predicted_labels, score] = predict(classifier, testing_data);
+                        elseif iRegulType==2 % elasticNet, alpha = 0.5
+                            [B, FitInfo] = lassoglm(training_data, training_labels-1, 'binomial', 'Alpha', 0.5,'Lambda', lambda(iLambda)); % alpha=0.5 corresponds to same weighting of lasso and ridge penalty
+
+                            linear_predictor = FitInfo.Intercept + testing_data * B;
+
+                            % Apply the logistic transformation
+                            score = 1 ./ (1 + exp(-(FitInfo.Intercept + testing_data * B)));
+                            predicted_labels = score >= 0.5;  % Binary decision rule
+                            predicted_labels = predicted_labels + 1;
+                        elseif iRegulType==3 % lasso regression
+                            classifier = fitclinear(training_data, training_labels,'Learner', 'logistic', 'Regularization', 'lasso','Solver','sparsa','Lambda', lambda(iLambda)); % transpose so that it's nObservations x nPredictors, i.e. nTrials x nVox
+                            [predicted_labels, score] = predict(classifier, testing_data);
+                        end
+                    catch
+                        keyboard
+                    end
+                    % Test the classifier
+                    accuracy(iSub,iSess,iRun,iRegulType,iLambda) = sum(predicted_labels == testing_labels) ./ length(predicted_labels);
+                end
+            end
+        end
+    end
+end
+
+save(fullfile('/vols/Scratch/mgarvert/ManyMaps/imagingData/decoding/regularisationSweep',[mask '.mat']),"accuracy")
+
+strRegulType = {'ridge','elasticNet','lasso'}
+meanAccSess1 = squeeze(mean(mean(accuracy(:,1,:,:,:),1),3)); % iRegulType x nLambda
+[M, I_lin] = max(meanAccSess1(:));
+[indRegulType, indLambda] = ind2sub([3,nLambda],I_lin);
+disp(sprintf('mask: %s, max accuracy session 1: %.2f, with %s penalty, lambda = %.6f ',mask,M,strRegulType{indRegulType},lambda(indLambda)))
+
+meanAccSess2 = squeeze(mean(mean(accuracy(:,2,:,:,:),1),3)); % iRegulType x nLambda
+meanAccBothSess = squeeze(mean(mean(mean(accuracy,1),2),3)); % iRegulType x nLambda
+
+

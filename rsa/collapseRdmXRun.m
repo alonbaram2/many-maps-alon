@@ -1,0 +1,110 @@
+function collapseRdmXRun(rootData,subj,session,distType,nElem,nRun)
+
+fsl_dir = getenv('FSLDIR');
+if isempty(fsl_dir)
+    setenv('FSLDIR','/cvmfs/fsl.fmrib.ox.ac.uk/el9/fsl/6.0.7.16');
+end
+
+nRun = 4;
+nElem = 34;
+allRunsSquareMat = zeros(nRun*nElem);
+
+
+%%  load the expanded (nRuns*nElem x nRuns*Elem, in squareform vec format) RDM
+rdmDir = fullfile(rootData,'rsa_alon',subj,'dataRdms', distType, session);
+dataFile = fullfile(rdmDir,['dist_' distType '.nii']);
+outputFile = fullfile(rdmDir,['dist_' distType '_xRunCollapsed.nii']);
+
+% get NIFTI header info
+V = niftiinfo(dataFile);
+% read NIFTI array
+dist_nii = niftiread(dataFile);
+
+%% get the indeces
+nRunPairs = (nRun)*(nRun-1)/2;  %6
+indsVec = false(nRunPairs,nElem*nRun*(nElem*nRun-1)/2); % indeces for each pair of runs
+runPairCounter=0;
+for iRun=1:nRun
+    for jRun=1:nRun
+        if iRun>jRun %lower block triangle (not including same run)
+            runPairCounter = runPairCounter +1;
+            M = allRunsSquareMat;
+            M((iRun-1)*nElem+1:iRun*nElem,(jRun-1)*nElem+1:jRun*nElem)=1;
+            % make symmetric
+            M((jRun-1)*nElem+1:jRun*nElem,(iRun-1)*nElem+1:iRun*nElem)=1;
+            indsVec(runPairCounter,:) = logical(squareform(M)); % a vector of length nElem*4*(nElem*4-1)/2, with nElem x nElem 1s in it
+        end
+    end
+end
+
+%% Organise data and average over run pairs
+Xmat= single(zeros(size(dist_nii,1),size(dist_nii,2),size(dist_nii,3),nElem,nElem,nRunPairs));
+for iRunPair = 1:nRunPairs
+    Xvec = dist_nii(:,:,:,indsVec(iRunPair,:)); % the non-symetrical RDM for the pair, flattened (nElem*nElem)
+    % Change to a square matrix, instead of flatened matrix.
+    Xmat(:,:,:,:,:,iRunPair) = reshape(Xvec,size(Xvec,1),size(Xvec,2),size(Xvec,3),nElem,nElem);
+end
+% average over all run pairs
+Xmat = mean(Xmat,6);
+
+%% Average lower and upper triangles - i.e. average the two distances
+% (d1,d2) between each couple of conditions: d1 is between condition i in run 
+% 1 and condition j in run 2 and d2 is between conditino i in run 2 and
+% condition j in run 1). This will end up a symmetric matrix. 
+Xmat = (Xmat + permute(Xmat,[1,2,3,5,4])) / 2;
+% Extract diagonal elements (distance between a condition to itself - across 
+% runs). We will later append these elements to the flattned version of the 
+% symmetric RDM of the off-diagonal elements
+indDiag = 1:nElem+1:nElem*nElem;
+diagDist = Xmat(:,:,:,indDiag);
+% zero diagonal (to make it a distance matrix which can be easily
+% flattened).
+Xmat = reshape(Xmat,size(Xmat,1),size(Xmat,2),size(Xmat,3),nElem*nElem);
+Xmat(:,:,:,indDiag) = 0;
+Xmat = reshape(Xmat,size(Xmat,1),size(Xmat,2),size(Xmat,3),nElem,nElem);
+
+% For each voxel, flatten the (off-diagonals) RDM using squareform. This is quite
+% unefficient - there's probably a vectorised way of doing this. 
+xRunsDist = single(nan(size(Xmat,1),size(Xmat,2),size(Xmat,3),nElem*(nElem-1)/2));
+for i=1:size(Xmat,1)
+    for j=1:size(Xmat,2)
+        for k=1:size(Xmat,3)
+            xRunsDist(i,j,k,:) = squareform(reshape((Xmat(i,j,k,:,:)),nElem,nElem));
+        end
+    end
+end
+% append the diagonal elemnts at the end of the flattened off-diagonal
+% vector. 
+nii = cat(4,xRunsDist,diagDist);
+if (size(nii,4) ~= (nElem*(nElem-1)/2 + nElem))
+    warning('something is wrong with the dims')
+end
+V.ImageSize = size(nii);
+% save
+niftiwrite(nii,outputFile,V);
+
+
+%% Now get also within-run averaged RDM
+indsVec = false(nRun,nElem*nRun*(nElem*nRun-1)/2); % indeces for  within-run distances per run
+for iRun=1:nRun
+    M = allRunsSquareMat;
+    M((iRun-1)*nElem+1:iRun*nElem,(iRun-1)*nElem+1:iRun*nElem)=1;
+    M(eye(size(M))==1) = 0; % zero diagonal
+    indsVec(iRun,:) = logical(squareform(M)); % a vector of length nElem*4*(nElem*4-1)/2, with nElem x nElem 1s in it
+end
+%%  average over runs - no need to move from flattened to square matrix
+Xvec= single(zeros(size(dist_nii,1),size(dist_nii,2),size(dist_nii,3),nElem*(nElem-1)/2,nRun));
+for iRun  = 1:nRun
+    Xvec(:,:,:,:,iRun) = dist_nii(:,:,:,indsVec(iRun,:)); % 
+end
+% average over all runs
+Xvec = mean(Xvec,5);
+
+%save
+outputFile = fullfile(rdmDir,['dist_' distType '_withinRuns.nii']);
+if (size(Xvec,4) ~= (nElem*(nElem-1)/2 ))
+    warning('something is wrong with the dims')
+end
+V.ImageSize = size(Xvec);
+% save
+niftiwrite(Xvec,outputFile,V);

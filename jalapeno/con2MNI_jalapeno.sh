@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# move contrasts 9 (stay vs switch) and 10 (map1 vs map2) in design 322 to MNI. This is to later use it to preselect voxels for decoding analysis. 
+root=/home/fs0/mgarvert/scratch/ManyMaps/imagingData
+for subj in {1..25}; do
+    for sess in 1 2; do
+        spmDir=$root/Subj_${subj}/session_${sess}/1stLevel/design_342
+        # arbitrarily use run 1 folder for registration - anyway just using warps from structural image
+        regDir=$root/Subj_${subj}/session_${sess}/run_1/preprocess_smooth.feat/reg
+        mkdir $spmDir/MNI;
+        for conF in con_0001.nii con_0002.nii con_0003.nii con_0004.nii con_0005.nii con_0006.nii con_0007.nii con_0008.nii con_0009.nii con_0010.nii con_0011.nii con_0012.nii  con_0013.nii con_0014.nii con_0015.nii ; do
+            jid=`fsl_sub -q short applywarp -i $spmDir/$conF -o $spmDir/MNI/MNI_${conF} -r $regDir/standard.nii.gz -w $regDir/highres2standard_warp.nii.gz`
+            echo Subj_$subj sess_${sess} $conF $jid
+        done
+    done
+done
+
+# make thresholded masks from contrasts
+for d in /home/fs0/mgarvert/scratch/ManyMaps/imagingData/Subj_*/session_*/1stLevel/design_322_fsl_/MNI; do for con in $d/MNI_con_????.nii.gz; do fslmaths $con -nan -thr 0.5 -bin  ${con: 0:-7}_thrAbove0p5; fslmaths $con -nan -uthr -0.5 -mul -1 -bin  ${con: 0:-7}_thrBelowNeg0p5; fslmaths ${con: 0:-7}_thrAbove0p5 -add ${con: 0:-7}_thrBelowNeg0p5 ${con: 0:-7}_thrAbs0p5; done; done
+
+# create subject specific masks 
+for d in /home/fs0/mgarvert/scratch/ManyMaps/imagingData/Subj_*/session_*/1stLevel/design_322_fsl_/MNI; do for conMask in $d/MNI_con_00??_thrAbs0p5.nii.gz; do for mask in harvardoxford_HPC_bilateral.nii vmPFC_alon_2mm.nii 322_both_07_left_phc_1p5.nii 322_both_07_bilateral_phc_1p5.nii 322_both_07_mPFC_1p5.nii; do fslmaths $conMask -mas  /home/fs0/mgarvert/scratch/ManyMaps/imagingData/masks/$mask ${conMask: 0:-7}_X_${mask: 0:-4}; done; done; done 
+
+# add together mask from both contrasts
+for d in /home/fs0/mgarvert/scratch/ManyMaps/imagingData/Subj_*/session_*/1stLevel/design_322_fsl_/MNI; do 
+for mask in harvardoxford_HPC_bilateral vmPFC_alon_2mm 322_both_07_left_phc_1p5 322_both_07_bilateral_phc_1p5 322_both_07_mPFC_1p5; do 
+fslmaths $d/MNI_con_0009_thrAbs0p5_X_${mask} -add $d/MNI_con_0010_thrAbs0p5_X_${mask} -bin $d/MNI_bothCons_thrAbs0p5_X_${mask}; 
+gunzip $d/MNI_bothCons_thrAbs0p5_X_${mask}.nii.gz
+done; 
+done
+
+
+
+# ______________
+# move conImg to MNI for group analysis 
+
+# SUBJECTS_DIR=/home/fs0/mgarvert/scratch/ManyMaps/imagingData; spmDir=$SUBJECTS_DIR/Subj_1/session_1/1stLevel/design_342 ; for subj in {1..25} ; do for sess in 1 2; do dir=$SUBJECTS_DIR/Subj_${subj}/session_${sess}/1stLevel/design_342;  mkdir $dir/warp; for conImg in $spmDir/con*.nii; do echo ${conImg: -12} $subj $sess;  regDir=$SUBJECTS_DIR/Subj_${subj}/session_${sess}/run_1/preprocess_smooth.feat  ;  applywarp -i $dir/${conImg: -12} -o $dir/warp/w${conImg: -12} -r $regDir/reg/standard -w $regDir/reg/highres2standard_warp.nii.gz; gunzip $dir/warp/w${conImg: -12}.gz; done; done; done

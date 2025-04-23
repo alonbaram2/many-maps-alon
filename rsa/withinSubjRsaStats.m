@@ -1,0 +1,131 @@
+function withinSubjRsaStats(rootData,subj,session,distType,fwhm)
+
+saveStatisticFlag        = true; % this is to get the whole brain group level maps
+saveRdmElementsMapsFlag  = false; % this will be needed get the data RDM at specific ROis
+% we need to save the elements as
+% different files as we need to separately
+% smooth each element on the surface.
+
+rdmDir    = fullfile(rootData,'rsa_alon',subj,'dataRdms',distType,session);
+
+%% across-runs
+
+% % load data
+% dataFile_xRun      = fullfile(rdmDir,['dist_' distType '_xRunCollapsed.nii']);
+% nii_xRun           = niftiread(dataFile_xRun);
+dataFile_xRun1324  = fullfile(rdmDir,['dist_' distType '_xRun1324Collapsed.nii']);
+nii_xRun1324       = niftiread(dataFile_xRun1324);
+dataFile_within    = fullfile(rdmDir,['dist_' distType '_withinRuns.nii']);
+nii_within         = niftiread(dataFile_within);
+V        = niftiinfo(dataFile_within); % header info
+V.ImageSize(4) = 1; % we'll only save 3D maps. 
+
+% get linear indeces of voxels that are on the surface. needed for looping
+% later
+% nii_xRun_flat = reshape(nii_xRun,[size(nii_xRun,1)*size(nii_xRun,2)*size(nii_xRun,3),size(nii_xRun,4)]);
+nii_xRun1324_flat = reshape(nii_xRun1324,[size(nii_xRun1324,1)*size(nii_xRun1324,2)*size(nii_xRun1324,3),size(nii_xRun1324,4)]);
+% nii_within_flat = reshape(nii_within,[size(nii_within,1)*size(nii_within,2)*size(nii_within,3),size(nii_within,4)]);
+validInd = find(~isnan(nii_xRun1324_flat(:,1)));
+
+% Names of the analyses to run. These are the different model RDMs
+% that will be used to calculate summary statistics from the data
+% RDM.
+analyses.names = {'identity_bothMaps','identity_noSameCond','identity_diffMaps','context','context_noSameCond','position_bothMaps','position_noSameCond','position_diffMaps','distRel_bothMaps','distRel_noSameCond','distRel_sameMap','distRel_diffMaps','distIrrel_sameMap'};
+
+
+% get statistics - this is to get the whole brain maps.
+if saveStatisticFlag
+    for iAn = 1:length(analyses.names)
+        % get model RDM
+        [analyses.RDMs.xRun{iAn}, analyses.RDMs.within{iAn}] = getModelRdm(analyses.names{iAn},false,subj,session);
+        
+        outputDir = fullfile(rootData,'rsa_alon',subj,'statistics',distType,session);
+        mkdir(outputDir);
+        cd (outputDir)
+                       
+        % calculate summary statitic
+
+        if ismember(analyses.names{iAn},{'identity_bothMaps','identity_noSameCond','identity_diffMaps','context','context_noSameCond','position_bothMaps','position_noSameCond','position_diffMaps'})
+            % % xRun
+            % dissimilarMean = squeeze(mean(nii_xRun(:,:,:,analyses.RDMs.xRun{iAn}==1),4,'omitnan'));
+            % similarMean = squeeze(mean(nii_xRun(:,:,:,analyses.RDMs.xRun{iAn}==0),4,'omitnan'));
+            % analyses.statistic.xRun{iAn} = dissimilarMean - similarMean;
+            % xRun1324
+            dissimilarMean = squeeze(mean(nii_xRun1324(:,:,:,analyses.RDMs.xRun{iAn}==1),4,'omitnan'));
+            similarMean = squeeze(mean(nii_xRun1324(:,:,:,analyses.RDMs.xRun{iAn}==0),4,'omitnan'));
+            analyses.statistic.xRun1324{iAn} = dissimilarMean - similarMean;            
+            % % within
+            % dissimilarMean = squeeze(mean(nii_within(:,:,:,analyses.RDMs.within{iAn}==1),4,'omitnan'));
+            % similarMean = squeeze(mean(nii_within(:,:,:,analyses.RDMs.within{iAn}==0),4,'omitnan'));
+            % analyses.statistic.within{iAn} = dissimilarMean - similarMean;           
+        elseif ismember(analyses.names{iAn},{'distRel_bothMaps','distRel_noSameCond','distRel_sameMap','distRel_diffMaps','distIrrel_sameMap'})          
+            % statisticVec_xRun = nan(size(nii_xRun_flat,1),1);
+            statisticVec_xRun1324 = nan(size(nii_xRun1324_flat,1),1);           
+            % statisticVec_within = nan(size(nii_within_flat,1),1);
+            for iVox = 1:length(validInd)
+                % statisticVec_xRun(validInd(iVox)) = rsa.stat.rankCorr_Kendall_taua(nii_xRun_flat(validInd(iVox),:), analyses.RDMs.xRun{iAn});
+                statisticVec_xRun1324(validInd(iVox)) = rsa.stat.rankCorr_Kendall_taua(nii_xRun_flat(validInd(iVox),:), analyses.RDMs.xRun{iAn});
+                % statisticVec_within(validInd(iVox)) = rsa.stat.rankCorr_Kendall_taua(nii_within_flat(validInd(iVox),:), analyses.RDMs.within{iAn});
+            end
+            % analyses.statistic.xRun{iAn} = single(reshape(statisticVec_xRun,[size(nii_xRun,1),size(nii_xRun,2),size(nii_xRun,3)]));
+            analyses.statistic.xRun1324{iAn} = single(reshape(statisticVec_xRun1324,[size(nii_xRun1324,1),size(nii_xRun1324,2),size(nii_xRun1324,3)]));
+            % analyses.statistic.within{iAn} = single(reshape(statisticVec_within,[size(nii_within,1),size(nii_within,2),size(nii_within,3)]));
+        end
+        % save statistic nifti. 
+        % fname_stat  = [analyses.names{iAn} '_xRun.nii'];        
+        % niftiwrite(analyses.statistic.xRun{iAn},fullfile(outputDir,fname_stat),V)  
+        % projectToSurfAndSmooth(rootData,outputDir,fname_stat,subj,fwhm);
+        fname_stat  = [analyses.names{iAn} '_xRun1324.nii'];        
+        niftiwrite(analyses.statistic.xRun1324{iAn},fullfile(outputDir,fname_stat),V)  
+        projectToSurfAndSmooth(rootData,outputDir,fname_stat,subj,fwhm);        
+        % fname_stat  = [analyses.names{iAn} '_within.nii'];        
+        % niftiwrite(analyses.statistic.within{iAn},fullfile(outputDir,fname_stat),V)  
+        % projectToSurfAndSmooth(rootData,outputDir,fname_stat,subj,fwhm);
+
+
+        % project to the surface if applicable, and smooth on the surface.
+        % Otherwise smooth within the volumetric mask used to create the
+        % searchlight.
+        % if strcmp(sl,'surf') % surface analyses
+            %  project to the surface, and smooth on the surface
+        % projectToSurfAndSmooth(rootData,outputDir,fname_stat,subj,fwhm);
+        % else % volumetric analyses - smooth within volumetric mask
+        %     smoothVolumetricMapsWithinMask(rootData,outputDir,fullfile(outputDir,fname_stat),sl,fwhm);
+        % end
+        
+        % % do the same for the simialr and dissimilar groups of elements.
+        % % we'll need those to produce the gGardner-Altman plots.
+        % outputDir = fullfile(rootData,'RDMs',glm,subj,'rsaContrastsGroups',distType,sl);
+        % mkdir(outputDir);
+        % cd (outputDir)        
+        % fname_sim  = [analyses.names{iAn} '_sim.nii'];
+        % fname_dsim = [analyses.names{iAn} '_dsim.nii'];
+        % niftiwrite(similarMean,fullfile(outputDir,fname_sim),V)
+        % niftiwrite(dissimilarMean,fullfile(outputDir,fname_dsim),V)
+        % % if strcmp(sl,'surf') % surface analyses 
+        % projectToSurfAndSmooth(rootData,outputDir,fname_sim,subj,fwhm);
+        % projectToSurfAndSmooth(rootData,outputDir,fname_dsim,subj,fwhm);
+        % % else % volumetric analyses - smooth within volumetric mask
+        % %     smoothVolumetricMapsWithinMask(rootData,outputDir,fullfile(outputDir,fname_sim),sl,fwhm);
+        % %     smoothVolumetricMapsWithinMask(rootData,outputDir,fullfile(outputDir,fname_dsim),sl,fwhm);            
+        % % end                       
+    end
+end
+% save individual RDM elements as separate files
+% this will be needed get the data RDM at specific ROis
+if saveRdmElementsMapsFlag
+    outputDir = fullfile(rootData,'RDMs',glm,subj,'rdmElements',distType,sl);
+    mkdir(outputDir);
+    cd (outputDir)
+     
+    for iElem=1:size(nii,4)
+        elemMap = squeeze(nii(:,:,:,iElem));
+        fname_elem = ['elem' num2str(iElem) '.nii'];
+        niftiwrite(elemMap,fullfile(outputDir,fname_elem),V)
+        % currently all RSA analyses are on the surface 
+            %  project to the surface, and smooth on the surface
+            projectToSurfAndSmooth(rootData,outputDir,fname_elem,subj,fwhm);
+        % for volumetric analyses
+        % smoothVolumetricMapsWithinMask(rootData,outputDir,fullfile(outputDir,fname_elem),sl,fwhm);
+    end
+end

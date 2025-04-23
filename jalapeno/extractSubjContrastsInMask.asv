@@ -1,0 +1,21 @@
+design=342
+dir=/vols/Scratch/mgarvert/ManyMaps/imagingData/2ndLevel/design_${design} 
+maskdir=/vols/Scratch/mgarvert/ManyMaps/imagingData/masks 
+mask=322_both_07_left_parahippoc_2p5_mask 
+mkdir -p $dir/mask/$mask
+cp $maskdir/$mask.nii $dir/mask/$mask 
+for extract_from_con in  01_rel_dist_1TrialFromSwitch 02_irrel_dist_1TrialFromSwitch 05_rel_dist_allExcept1TrialFromSwitch 06_irrel_dist_allExcept1TrialFromSwitch
+do echo $extract_from_con 
+ix=${extract_from_con:1:1} 
+mkdir -p $dir/mask/${mask}/${extract_from_con} 
+for subj in {01..25}; 
+do for sess in 1 2; 
+do echo $subj $sess 
+dataDir=$dir/session_$sess/${extract_from_con} 
+fslmeants -i $dataDir/${subj}_wcon_000$ix -m $dir/mask/$mask/$mask -o $dir/mask/$mask/${extract_from_con}/${subj}${sess}${mask}${extract_from_con}.txt 
+cp $maskdir/$mask.nii $dir/mask/$mask/${extract_from_con}/ 
+done 
+done 
+done
+
+# I think it would be useful to have these ones 03_irrel_dist_stay 02_rel_dist_stay  separately for OneAfterSwitch versus REST

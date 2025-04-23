@@ -1,0 +1,92 @@
+clear
+
+rootScripts = '/vols/Scratch/mgarvert/ManyMaps/imagingData/scripts/alon'; % this includes a copy of rsatoolbox
+addpath(genpath(rootScripts));  
+spmPath = '/vols/Scratch/abaram/MATLAB/spm12';
+addpath(spmPath);
+subject_dir = getenv('SUBJECTS_DIR');
+if isempty(subject_dir)
+    setenv('SUBJECTS_DIR','/vols/Scratch/mgarvert/ManyMaps/imagingData/FS/');
+    subject_dir = getenv('SUBJECTS_DIR');
+end       
+fs_dir = getenv('FREESURFER_HOME');
+if isempty(fs_dir)
+    setenv('FREESURFER_HOME','/cvmfs/software.fmrib.ox.ac.uk/neuro/el9/software/freesurfer/7.4.1/');
+    fs_dir = getenv('FREESURFER_HOME');
+end
+fsl_dir = getenv('FSLDIR');
+if isempty(fsl_dir)
+    setenv('FSLDIR','/cvmfs/fsl.fmrib.ox.ac.uk/el9/fsl/6.0.7.16')
+end
+
+rootData    = '/vols/Scratch/mgarvert/ManyMaps/imagingData/';
+
+% only subjects with both sessions
+subjects = {'Subj_1','Subj_2','Subj_3','Subj_4','Subj_5','Subj_6','Subj_7','Subj_8',...
+   'Subj_9','Subj_10','Subj_11','Subj_12','Subj_13','Subj_14','Subj_16',...
+  'Subj_19','Subj_20','Subj_21','Subj_22','Subj_23','Subj_24','Subj_25' };
+
+sessions = {'session_1','session_2'};
+
+nSub = length(subjects);
+nRun  = 4; % two independent runs, each with the 4 conditions
+fwhm = 5; % smoothing kernel
+
+%% For all RSA analyses: define the searchlight on the surface. 
+% This code assumes you have already ran the Freesurfer surface reconstruciton
+% using the recon-all command: https://surfer.nmr.mgh.harvard.edu/fswiki/recon-all
+% This code is adapted from the RSA toolbox, and requires it to be in your
+% path: https://github.com/rsagroup/rsatoolbox
+for iSub=1:length(subjects)    
+    define_searchlight_surf(rootData,subjects{iSub})
+end
+
+
+
+%% Run RSA 
+
+% run the RSA analysis on the cortical surface.
+for iSub=1:length(subjects)
+    for iSess=1:2
+        % get the extended RDM (i.e. before crossing the blocks)
+%        run_rsa(rootData,subjects{iSub},'correlation',sessions{iSess})
+%        collapseRdmXRun(rootData,subjects{iSub},sessions{iSess},'correlation',34,4)
+        withinSubjRsaStats(rootData,subjects{iSub},sessions{iSess},'correlation',fwhm)
+    end
+    withinSubjRsaStats_diffAndBothSess(rootData,subjects{iSub},'correlation')
+end
+
+%% run group (parametric) stats
+groupStatsWilcoxon (rootData,subjects,'correlation')
+
+%%
+
+
+% # group analysis 
+% first stack all single subjects contrasts into one file
+stackSubjectsContrasts(rootData,subjects,'GLM2','xRun','surf');
+
+% # Run permutation tests - Fig 2d and S4
+% run permutation tests in PALM on the surface
+% The permutation tests also correct for multiple comparisons.
+% Note that  this takes a long time to run.
+clusterThresh = '3.1'; % cluster forming threshold.
+nPerm       = '10000';% number of permutations
+maskName = 'CORTEX'; % Either CORTEX or entorhinal_exvivo, depends on where you want FWE correction to happen
+% run PALM
+groupLevelPermTests(rootData,'GLM2','xRun','surf',clusterThresh,nPerm,maskName)
+    
+% # plot RDMs at the peaks: entorhinal for relational structure and 
+%   LOC for visual identity  (both in right hemisphere)
+%   First get vertex of peak activation, then plot average RDM across
+%   participants in this vertex. 
+% visualise effects at their peak
+% relational structure - Fig 2b and c, top. Get the max vertex from the group level map with
+% all 28 subjects, saved in masksAndRois. This the 28-subject result equivalent to
+% the 25-subjects files in fullfile(rootData,'RDMs','GLM2','groupStats','perm','xRun','surf','CORTEX')
+relationalStructMap = load_mgh(fullfile(rootData,'masksAndRois','fsaverage','relationalStructure_smth5_rh_nPerm10000_clstrTh3p1_dpv_tstat_uncp_c1_all28subjects.mgz'));
+[~,indMax] = max(relationalStructMap);
+roiStr = [num2str(indMax - 1),'rh']; % -1 is for conversion from Matlab to Freesurfer coords. 
+plotDataRdm(rootData,subjects,'GLM2','xRun','relationalStructure',roiStr,fwhm)
+plotGardnerAltman(rootData,subjects,'GLM2','xRun','surf','relationalStructure',roiStr,fwhm)
+
