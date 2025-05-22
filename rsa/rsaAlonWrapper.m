@@ -38,7 +38,7 @@ fwhm = 5; % smoothing kernel
 % This code is adapted from the RSA toolbox, and requires it to be in your
 % path: https://github.com/rsagroup/rsatoolbox
 for iSub=1:length(subjects)    
-    % define_searchlight_surf(rootData,subjects{iSub})
+    define_searchlight_surf(rootData,subjects{iSub})
 end
 
 %% Run RSA 
@@ -47,7 +47,7 @@ end
 for iSub=1:length(subjects)
     for iSess=1:2
         % get the extended RDM (i.e. before crossing the blocks)
-        % run_rsa(rootData,subjects{iSub},'correlation',sessions{iSess})
+        run_rsa(rootData,subjects{iSub},'correlation',sessions{iSess})
         % collapseRdmXRun(rootData,subjects{iSub},sessions{iSess},'correlation',34,4)
         collapseRdmXRun1324(rootData,subjects{iSub},sessions{iSess},'correlation',34,4)
         withinSubjRsaStats(rootData,subjects{iSub},sessions{iSess},'correlation',fwhm)
@@ -58,35 +58,44 @@ end
 %% run group (parametric) stats
 groupStatsWilcoxon(rootData,subjects,'correlation')
 
+%% Permutation stats
+clusterThresh='None';
+nPerm='10000';
+maskName = 'spmT_rel_dist_switch_session_diff_0001_oppositeSign_mask2p5_surfaceIntersection_mPFC_mask';
+sl='vol';
+pathIn = ['/vols/Scratch/mgarvert/ManyMaps/imagingData/rsa_alon/allSubjStacked/correlation/diff' ...
+    '/distRel_diffMaps_xRun1324_smth5_MNI.nii'];
+groupLevelPermTests(rootData,clusterThresh,nPerm,maskName,sl,pathIn)
+
 %%
 
 
-% # group analysis 
-% first stack all single subjects contrasts into one file
-stackSubjectsContrasts(rootData,subjects,'GLM2','xRun','surf');
-
-% # Run permutation tests - Fig 2d and S4
-% run permutation tests in PALM on the surface
-% The permutation tests also correct for multiple comparisons.
-% Note that  this takes a long time to run.
-clusterThresh = '3.1'; % cluster forming threshold.
-nPerm       = '10000';% number of permutations
-maskName = 'CORTEX'; % Either CORTEX or entorhinal_exvivo, depends on where you want FWE correction to happen
-% run PALM
-groupLevelPermTests(rootData,'GLM2','xRun','surf',clusterThresh,nPerm,maskName)
-    
-% # plot RDMs at the peaks: entorhinal for relational structure and 
-%   LOC for visual identity  (both in right hemisphere)
-%   First get vertex of peak activation, then plot average RDM across
-%   participants in this vertex. 
-% visualise effects at their peak
-% relational structure - Fig 2b and c, top. Get the max vertex from the group level map with
-% all 28 subjects, saved in masksAndRois. This the 28-subject result equivalent to
-% the 25-subjects files in fullfile(rootData,'RDMs','GLM2','groupStats','perm','xRun','surf','CORTEX')
-relationalStructMap = load_mgh(fullfile(rootData,'masksAndRois','fsaverage','relationalStructure_smth5_rh_nPerm10000_clstrTh3p1_dpv_tstat_uncp_c1_all28subjects.mgz'));
-[~,indMax] = max(relationalStructMap);
-roiStr = [num2str(indMax - 1),'rh']; % -1 is for conversion from Matlab to Freesurfer coords. 
-plotDataRdm(rootData,subjects,'GLM2','xRun','relationalStructure',roiStr,fwhm)
-plotGardnerAltman(rootData,subjects,'GLM2','xRun','surf','relationalStructure',roiStr,fwhm)
-
- 
+% % # group analysis 
+% % first stack all single subjects contrasts into one file
+% stackSubjectsContrasts(rootData,subjects,'GLM2','xRun','surf');
+% 
+% % # Run permutation tests - Fig 2d and S4
+% % run permutation tests in PALM on the surface
+% % The permutation tests also correct for multiple comparisons.
+% % Note that  this takes a long time to run.
+% clusterThresh = '3.1'; % cluster forming threshold.
+% nPerm       = '10000';% number of permutations
+% maskName = 'CORTEX'; % Either CORTEX or entorhinal_exvivo, depends on where you want FWE correction to happen
+% % run PALM
+% groupLevelPermTests(rootData,'GLM2','xRun','surf',clusterThresh,nPerm,maskName)
+% 
+% % # plot RDMs at the peaks: entorhinal for relational structure and 
+% %   LOC for visual identity  (both in right hemisphere)
+% %   First get vertex of peak activation, then plot average RDM across
+% %   participants in this vertex. 
+% % visualise effects at their peak
+% % relational structure - Fig 2b and c, top. Get the max vertex from the group level map with
+% % all 28 subjects, saved in masksAndRois. This the 28-subject result equivalent to
+% % the 25-subjects files in fullfile(rootData,'RDMs','GLM2','groupStats','perm','xRun','surf','CORTEX')
+% relationalStructMap = load_mgh(fullfile(rootData,'masksAndRois','fsaverage','relationalStructure_smth5_rh_nPerm10000_clstrTh3p1_dpv_tstat_uncp_c1_all28subjects.mgz'));
+% [~,indMax] = max(relationalStructMap);
+% roiStr = [num2str(indMax - 1),'rh']; % -1 is for conversion from Matlab to Freesurfer coords. 
+% plotDataRdm(rootData,subjects,'GLM2','xRun','relationalStructure',roiStr,fwhm)
+% plotGardnerAltman(rootData,subjects,'GLM2','xRun','surf','relationalStructure',roiStr,fwhm)
+% 
+% 

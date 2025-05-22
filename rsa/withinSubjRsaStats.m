@@ -16,7 +16,7 @@ rdmDir    = fullfile(rootData,'rsa_alon',subj,'dataRdms',distType,session);
 dataFile_xRun1324  = fullfile(rdmDir,['dist_' distType '_xRun1324Collapsed.nii']);
 nii_xRun1324       = niftiread(dataFile_xRun1324);
 dataFile_within    = fullfile(rdmDir,['dist_' distType '_withinRuns.nii']);
-nii_within         = niftiread(dataFile_within);
+% nii_within         = niftiread(dataFile_within);
 V        = niftiinfo(dataFile_within); % header info
 V.ImageSize(4) = 1; % we'll only save 3D maps. 
 
@@ -64,7 +64,7 @@ if saveStatisticFlag
             % statisticVec_within = nan(size(nii_within_flat,1),1);
             for iVox = 1:length(validInd)
                 % statisticVec_xRun(validInd(iVox)) = rsa.stat.rankCorr_Kendall_taua(nii_xRun_flat(validInd(iVox),:), analyses.RDMs.xRun{iAn});
-                statisticVec_xRun1324(validInd(iVox)) = rsa.stat.rankCorr_Kendall_taua(nii_xRun_flat(validInd(iVox),:), analyses.RDMs.xRun{iAn});
+                statisticVec_xRun1324(validInd(iVox)) = rsa.stat.rankCorr_Kendall_taua(nii_xRun1324_flat(validInd(iVox),:), analyses.RDMs.xRun{iAn});
                 % statisticVec_within(validInd(iVox)) = rsa.stat.rankCorr_Kendall_taua(nii_within_flat(validInd(iVox),:), analyses.RDMs.within{iAn});
             end
             % analyses.statistic.xRun{iAn} = single(reshape(statisticVec_xRun,[size(nii_xRun,1),size(nii_xRun,2),size(nii_xRun,3)]));
