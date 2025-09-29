@@ -67,6 +67,20 @@ pathIn = ['/vols/Scratch/mgarvert/ManyMaps/imagingData/rsa_alon/allSubjStacked/c
     '/distRel_diffMaps_xRun1324_smth5_MNI.nii'];
 groupLevelPermTests(rootData,clusterThresh,nPerm,maskName,sl,pathIn)
 
+
+%% Permutation stats - test sameMap effect in diffMaps and vice versa
+clusterThresh='None';
+nPerm='10000';
+sl='surf';
+
+maskName = 'rh.diff_distRel_diffMaps_xRun1324_smth5_thrsh0p95_intersect_BA24_32';
+pathIn = '/vols/Scratch/mgarvert/ManyMaps/imagingData/rsa_alon/allSubjStacked/correlation/diff/distRel_sameMap_xRun1324_smth5_rh_allSubj.mgh';
+groupLevelPermTests(rootData,clusterThresh,nPerm,maskName,sl,pathIn)
+
+maskName = 'rh.diff_distRel_sameMap_xRun1324_smth5_thrsh0p95_intersect_BA24_32';
+pathIn = '/vols/Scratch/mgarvert/ManyMaps/imagingData/rsa_alon/allSubjStacked/correlation/diff/distRel_diffMaps_xRun1324_smth5_rh_allSubj.mgh';
+groupLevelPermTests(rootData,clusterThresh,nPerm,maskName,sl,pathIn)
+
 %%
 
 
