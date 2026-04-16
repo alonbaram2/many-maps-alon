@@ -1,4 +1,4 @@
-function collapseRdmXRun(rootData,subj,session,distType,nElem,nRun)
+function collapseRdmXRun1324(rootData,subj,session, sl, distType,nElem,nRun)
 
 fsl_dir = getenv('FSLDIR');
 if isempty(fsl_dir)
@@ -11,7 +11,7 @@ allRunsSquareMat = zeros(nRun*nElem);
 
 
 %%  load the expanded (nRuns*nElem x nRuns*Elem, in squareform vec format) RDM
-rdmDir = fullfile(rootData,'rsa_alon',subj,'dataRdms', distType, session);
+rdmDir = fullfile(rootData,'rsa_alon',subj,'dataRdms', sl, session);
 dataFile = fullfile(rdmDir,['dist_' distType '.nii']);
 outputFile = fullfile(rdmDir,['dist_' distType '_xRun1324Collapsed.nii']);
 
@@ -22,7 +22,7 @@ dist_nii = niftiread(dataFile);
 
 %% get the indeces
 nRunPairs = (nRun)*(nRun-1)/2;  %6
-runPairsToUse = [2,5] % % 2nd pair is 1-3, 5th pair is 2-4. 
+runPairsToUse = [2,5]; % % 2nd pair is 1-3, 5th pair is 2-4. 
 indsVec = false(nRunPairs,nElem*nRun*(nElem*nRun-1)/2); % indeces for each pair of runs
 runPairCounter=0;
 for iRun=1:nRun
@@ -48,14 +48,17 @@ for iRunPair = 1:2
 end
 
 % average over the runPairsToUse
-Xmat = mean(Xmat,6); 
+Xmat = mean(Xmat,6, 'omitnan'); 
 
 
 %% Average lower and upper triangles - i.e. average the two distances
 % (d1,d2) between each couple of conditions: d1 is between condition i in run 
 % 1 and condition j in run 2 and d2 is between conditino i in run 2 and
 % condition j in run 1). This will end up a symmetric matrix. 
-Xmat = (Xmat + permute(Xmat,[1,2,3,5,4])) / 2;
+
+% Xmat = (Xmat + permute(Xmat,[1,2,3,5,4])) / 2;
+Xmat = mean(cat(6, Xmat, permute(Xmat,[1,2,3,5,4])), 6, 'omitnan');
+
 % Extract diagonal elements (distance between a condition to itself - across 
 % runs). We will later append these elements to the flattned version of the 
 % symmetric RDM of the off-diagonal elements
@@ -87,3 +90,5 @@ V.ImageSize = size(nii);
 % save
 niftiwrite(nii,outputFile,V);
 
+% delete full RDM (because it's huge)
+delete(dataFile);

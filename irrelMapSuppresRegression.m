@@ -56,7 +56,7 @@ for s = 1:length(subs)
                 prev_obj(prev_obj>17) = prev_obj(prev_obj>17) -17; % subtract 17 if context 2
                 for i = 1:length(curr_obj) % go through all the objects
                     m = objTr.map(i);
-                    dRel(i)   = data.map{m,m}(curr_obj(i),prev_obj(i)); % compute the distance between the two stimuli on the irrelevant$
+                    dRel(i)   = data.map{m,m}(curr_obj(i),prev_obj(i)); % compute the distance between the two stimuli on the relevant
                     dIrrel(i)   = data.map{m,mod(m,2)+1}(curr_obj(i),prev_obj(i));                   % compute the distance between the two stimuli on the irrelev$
                 end
                 % add back the first trial so that the trial indeces

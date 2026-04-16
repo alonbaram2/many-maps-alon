@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# for subj in  {1..25}
+    # for sess in 1 2
+
+sub=$1
+# sess=$2
+
+# origScript=/vols/Scratch/mgarvert/ManyMaps/imagingData/scripts/alon/jalapeno/runRsa_jalapenoSubjWrapper.m
+origScript=/vols/Scratch/mgarvert/ManyMaps/imagingData/scripts/alon/jalapeno/slVol_jalapenoSubjWrapper.m
+tmpOutScriptsDir=/vols/Scratch/mgarvert/ManyMaps/imagingData/scripts/alon/jalapeno
+cat ${origScript} | sed "s/XXsubjIDXX/Subj_${sub}/g" | sed "s/XXsessionIDXX/session_${sess}/g" > ${tmpOutScriptsDir}/Subj_${sub}_session_${sess}.m;
+jobID1=`fsl_sub -T 100 -R 96 -N sj${sub}_ses${sess} matlab -nodisplay -nosplash \< ${tmpOutScriptsDir}/Subj_${sub}_session_${sess}.m`;
+echo $jobID1

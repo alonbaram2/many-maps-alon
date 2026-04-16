@@ -1,12 +1,16 @@
 import os
 import nibabel as nib
 import numpy as np
+import shutil
 
 # === Configuration ===
 stats_dir = '/vols/Scratch/mgarvert/ManyMaps/imagingData/rsa_alon/groupStats/correlation/Wilcoxon'
-mgh_path = os.path.join(stats_dir, 'P_diff_distRel_bothMaps_xRun1324_smth5_rh_on_rh.mgh')
-output_label = os.path.join(stats_dir, 'P_diff_distRel_bothMaps_xRun1324_smth5_rh_on_rh_thrsh0p99.label')
-output_mgh = os.path.join(stats_dir, 'P_diff_distRel_bothMaps_xRun1324_smth5_rh_on_rh_thrsh0p99.mgh')
+mask_dir = '/vols/Scratch/mgarvert/ManyMaps/imagingData/masks/fsaverage'
+
+mgh_path = os.path.join(stats_dir, 'P_diff_distRel_diffMaps_xRun1324_smth5_rh.mgh')
+output_fname = 'rh.diff_distRel_diffMaps_xRun1324_smth5_thrsh0p99'
+output_label = os.path.join(stats_dir, f"{output_fname}.label")
+output_mgh = os.path.join(stats_dir, f"{output_fname}.mgh")
 threshold = 0.99
 
 # === Load .mgh file ===
@@ -37,3 +41,7 @@ nib.save(new_img, output_mgh)
 
 print(f"Saved label with {len(vertices)} vertices to: {output_label}")
 print(f"Saved thresholded .mgh file to: {output_mgh}")
+
+# copy to masks folder
+shutil.copy(output_label, mask_dir)
+shutil.copy(output_mgh, mask_dir)

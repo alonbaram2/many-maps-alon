@@ -1,4 +1,4 @@
-function withinSubjRsaStats(rootData,subj,session,distType,fwhm)
+function withinSubjRsaStats(rootData,subj,session, sl, distType,fwhm)
 
 saveStatisticFlag        = true; % this is to get the whole brain group level maps
 saveRdmElementsMapsFlag  = false; % this will be needed get the data RDM at specific ROis
@@ -6,7 +6,7 @@ saveRdmElementsMapsFlag  = false; % this will be needed get the data RDM at spec
 % different files as we need to separately
 % smooth each element on the surface.
 
-rdmDir    = fullfile(rootData,'rsa_alon',subj,'dataRdms',distType,session);
+rdmDir    = fullfile(rootData,'rsa_alon',subj,'dataRdms', sl, session);
 
 %% across-runs
 
@@ -15,9 +15,9 @@ rdmDir    = fullfile(rootData,'rsa_alon',subj,'dataRdms',distType,session);
 % nii_xRun           = niftiread(dataFile_xRun);
 dataFile_xRun1324  = fullfile(rdmDir,['dist_' distType '_xRun1324Collapsed.nii']);
 nii_xRun1324       = niftiread(dataFile_xRun1324);
-dataFile_within    = fullfile(rdmDir,['dist_' distType '_withinRuns.nii']);
+% dataFile_within    = fullfile(rdmDir,['dist_' distType '_withinRuns.nii']);
 % nii_within         = niftiread(dataFile_within);
-V        = niftiinfo(dataFile_within); % header info
+V        = niftiinfo(dataFile_xRun1324); % header info
 V.ImageSize(4) = 1; % we'll only save 3D maps. 
 
 % get linear indeces of voxels that are on the surface. needed for looping
@@ -30,7 +30,8 @@ validInd = find(~isnan(nii_xRun1324_flat(:,1)));
 % Names of the analyses to run. These are the different model RDMs
 % that will be used to calculate summary statistics from the data
 % RDM.
-analyses.names = {'identity_bothMaps','identity_noSameCond','identity_diffMaps','context','context_noSameCond','position_bothMaps','position_noSameCond','position_diffMaps','distRel_bothMaps','distRel_noSameCond','distRel_sameMap','distRel_diffMaps','distIrrel_sameMap'};
+% analyses.names = {'identity_bothMaps','identity_noSameCond','identity_diffMaps','context','context_noSameCond','position_bothMaps','position_noSameCond','position_diffMaps','distRel_bothMaps','distRel_noSameCond','distRel_sameMap','distRel_diffMaps','distIrrel_sameMap'};
+analyses.names = {'distRel_bothMaps','distRel_noSameCond','distRel_sameMap','distRel_diffMaps','distIrrel_sameMap'};
 
 
 % get statistics - this is to get the whole brain maps.
@@ -39,7 +40,7 @@ if saveStatisticFlag
         % get model RDM
         [analyses.RDMs.xRun{iAn}, analyses.RDMs.within{iAn}] = getModelRdm(analyses.names{iAn},false,subj,session);
         
-        outputDir = fullfile(rootData,'rsa_alon',subj,'statistics',distType,session);
+        outputDir = fullfile(rootData,'rsa_alon',subj,'statistics', sl, session);
         mkdir(outputDir);
         cd (outputDir)
                        
@@ -77,7 +78,12 @@ if saveStatisticFlag
         % projectToSurfAndSmooth(rootData,outputDir,fname_stat,subj,fwhm);
         fname_stat  = [analyses.names{iAn} '_xRun1324.nii'];        
         niftiwrite(analyses.statistic.xRun1324{iAn},fullfile(outputDir,fname_stat),V)  
-        projectToSurfAndSmooth(rootData,outputDir,fname_stat,subj,fwhm);        
+        
+        if strcmp(sl,'WhBr_surf_r10_v100')
+            projectToSurfAndSmooth(rootData,outputDir,fname_stat,subj,fwhm);       
+        end
+        
+        
         % fname_stat  = [analyses.names{iAn} '_within.nii'];        
         % niftiwrite(analyses.statistic.within{iAn},fullfile(outputDir,fname_stat),V)  
         % projectToSurfAndSmooth(rootData,outputDir,fname_stat,subj,fwhm);

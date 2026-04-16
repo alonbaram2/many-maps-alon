@@ -1,4 +1,4 @@
-function run_rsa(root, subj, distType,session)
+function run_rsa(root, subj, sl, distType,session)
 
 % distType (str): correlation / euclidean (inputed to pdist)
 % session(str): session_1 or session_2
@@ -7,9 +7,13 @@ nConditions = 34; % 17 objects, 2 maps
 nElemFinal = nConditions*(nConditions-1)/2;
 nRuns=4;
 
-glm = 'design_307_fsl__noSmooth';
-dataRdmDir= fullfile(root,'rsa_alon',subj,'dataRdms', distType, session);
-L = load(fullfile(root,'rsa_alon',subj,'searchlight','WhBr_surf_r10_v100'));
+if strcmp(sl, 'WhBr_surf_r10_v100')
+    glm = 'design_307';
+else
+    glm = 'design_307_MNI';
+end
+dataRdmDir= fullfile(root,'rsa_alon',subj,'dataRdms', sl, session);
+L = load(fullfile(root,'rsa_alon',subj,'searchlight',sl));
 spmFile = fullfile(root,subj,session,'1stLevel',glm,'SPM.mat'); % directory for SPM.mat file
 load(spmFile);
 

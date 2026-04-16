@@ -4,19 +4,20 @@ rootScripts = '/vols/Scratch/mgarvert/ManyMaps/imagingData/scripts/alon'; % this
 addpath(genpath(rootScripts));  
 spmPath = '/vols/Scratch/abaram/MATLAB/spm12';
 addpath(spmPath);
-subject_dir = getenv('SUBJECTS_DIR');
-if isempty(subject_dir)
-    setenv('SUBJECTS_DIR','/home/fs0/mgarvert/scratch/ManyMaps/imagingData/FS/');
-    subject_dir = getenv('SUBJECTS_DIR');
-end       
-fs_dir = getenv('FREESURFER_HOME');
-if isempty(fs_dir)
-    setenv('FREESURFER_HOME','/cvmfs/software.fmrib.ox.ac.uk/neuro/el9/software/freesurfer/7.4.1/');
-    fs_dir = getenv('FREESURFER_HOME');
-end
+% subject_dir = getenv('SUBJECTS_DIR');
+% if isempty(subject_dir)
+%     setenv('SUBJECTS_DIR','/home/fs0/mgarvert/scratch/ManyMaps/imagingData/FS/');
+%     subject_dir = getenv('SUBJECTS_DIR');
+% end       
+% fs_dir = getenv('FREESURFER_HOME');
+% if isempty(fs_dir)
+%     setenv('FREESURFER_HOME','/cvmfs/software.fmrib.ox.ac.uk/neuro/el9/software/freesurfer/7.4.1/');
+%     fs_dir = getenv('FREESURFER_HOME');
+% end
 rootData    = '/vols/Scratch/mgarvert/ManyMaps/imagingData/';
 
+sl = 'MNI152_T1_2mm_brain_mask';
 subject = 'XXsubjIDXX';
 session = 'XXsessionIDXX';
 
-run_rsa(rootData,subject,'correlation',session)
+run_rsa(rootData,subject,sl,'correlation',session)

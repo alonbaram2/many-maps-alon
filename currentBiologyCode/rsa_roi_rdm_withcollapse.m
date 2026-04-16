@@ -1,0 +1,185 @@
+function rsa_roi_rdm_withcollapse(root, subj, roi, distType, session, outDirPerROI)
+% rsa_roi_rdm_withcollapse  Compute ROI RDM and collapse across runs.
+%
+% USAGE:
+%   rsa_roi_rdm_withcollapse(root, subj, roi, distType, session)
+%   rsa_roi_rdm_withcollapse(root, subj, roi, distType, session, outDirPerROI)
+%
+% Inputs:
+%   root, subj, roi, distType, session  
+%   outDirPerROI (optional) - override output directory for ROI RDM files.
+%
+% Outputs (saved .mat files):
+%   *_expanded.mat  -> RDM_vector (pdist), RDM_square, voxels_lin, ...
+%   *_collapsed.mat -> vec2save (flattened off-diagonals then diagonal)
+%
+% Notes:
+%  - Folding uses the same method and runPair indices as your function
+%    collapseRdm1324_roi.m but for all runs (runPairsToUse = [1:6])
+%  - nElem is set to 34 by default (17 objects × 2 maps). Change if needed.
+
+if nargin < 5
+    error('Please provide root, subj, roi, distType, session.');
+end
+
+% default output path
+if nargin < 6 || isempty(outDirPerROI)
+    outDirPerROI = fullfile(root,'rsa_alon',subj,'dataRdms', roi, session);
+end
+if ~exist(outDirPerROI,'dir'), mkdir(outDirPerROI); end
+
+% Choose GLM name as in original run_rsa.m (update if you use a different GLM)
+if strcmp(roi, 'WhBr_surf_r10_v100') % surface - currently not used
+    glm = 'design_307';
+else
+    glm = 'design_307_MNI'; % volumetric RSA in ROIs - run in MNI space
+end
+
+% Load SPM
+spmFile = fullfile(root, subj, session, '1stLevel', glm, 'SPM.mat');
+if ~exist(spmFile,'file')
+    error('SPM.mat not found: %s', spmFile);
+end
+load(spmFile); % loads SPM
+
+% Load ROI mask
+masksDir = fullfile(root,'masks');
+maskFile = fullfile(masksDir, [roi '.nii']);
+if ~exist(maskFile,'file')
+    error('ROI mask not found: %s', maskFile);
+end
+Vmask = spm_vol(maskFile);
+maskVol = spm_read_vols(Vmask);
+maskIdx = find(maskVol > 0);      % linear indices of voxels in mask
+
+if isempty(maskIdx)
+    error('ROI mask contains no voxels: %s', maskFile);
+end
+
+% Prepare volumes from SPM.xY.VY
+if isfield(SPM,'xY') && isfield(SPM.xY,'VY')
+    VolIn = SPM.xY.VY;
+else
+    error('SPM.xY.VY not found in SPM.mat');
+end
+if ischar(VolIn)
+    VolIn = spm_vol(VolIn);
+end
+nImages = length(VolIn);
+
+% Convert mask linear indices to IJK coordinates in SPM image space
+dim = VolIn(1).dim;
+[Ivox, Jvox, Kvox] = ind2sub(dim, maskIdx);
+
+% Sample intensities: create data matrix vox x images
+data_vox_by_img = zeros(length(maskIdx), nImages);
+for i = 1:nImages
+    data_vox_by_img(:, i) = spm_sample_vol(VolIn(i), double(Ivox), double(Jvox), double(Kvox), 0);
+end
+
+% Build Y as nObservations x nVox (same as runSearchlight)
+Y = data_vox_by_img'; % size = [nImages x nVox]
+
+% Construct condition selector (match your run_rsa.m logic)
+nConditions = 34;    % default (17 objects * 2 maps), change if needed
+nRuns = numel(SPM.Sess);
+regInds4RSA = 1:nConditions;
+condition = false(1, size(SPM.xX.xKXs.X,2));
+for iRun = 1:nRuns
+    condition(SPM.Sess(iRun).col(regInds4RSA)) = true;
+end
+
+% Noise-normalise betas (rsa toolbox)
+try
+    B = real(rsa.spm.noiseNormalizeBeta(Y, SPM)); % nObs x nVox
+catch ME
+    error('Error calling rsa.spm.noiseNormalizeBeta: %s\nMake sure rsa.* functions are on the path.', ME.message);
+end
+
+% select the betas corresponding to the RSA regressors (N x vox)
+B = B(logical(condition), :);
+
+% numeric cleanup
+B(abs(B) < 1e-8) = 0;
+
+% compute pdist (expanded RDM)
+warning('off', 'all');
+RDM_vector = pdist(B, distType);  % row vector length = nObs*(nObs-1)/2
+warning('on', 'all');
+
+RDM_square = squareform(RDM_vector);
+
+% Save expanded result
+created_date = datestr(now);
+voxels_lin = maskIdx;
+expandedFile = fullfile(outDirPerROI, sprintf('%s_ROI_RDM_%s_expanded.mat', roi, distType));
+save(expandedFile, 'RDM_vector', 'RDM_square', 'voxels_lin', 'distType', 'roi', 'subj', 'session', 'created_date');
+fprintf('Saved expanded ROI RDM to: %s\n', expandedFile);
+
+%% ---- Now collapse across runs using the same logic as collapseRdm1324_roi.m ----
+% Parameters (match your function)
+nRun = 4;
+nElem = nConditions;           % 34 by default
+allRunsSquareMat = zeros(nRun*nElem);
+
+% rdm_dist corresponds to the pdist vector in the same ordering used by squareform
+rdm_dist = RDM_vector(:)';     % make it a row for indexing (as in your function)
+
+% Build indices for each run-pair lower triangle blocks (same order as your code)
+nRunPairs = (nRun)*(nRun-1)/2;  % 6
+runPairsToUse = 1:6; % [2,5]?         
+
+% Pre-allocate indsVec: each row is a logical vector (1 x length(pdistVec))
+vecLen = length(rdm_dist);      % nTotal*(nTotal-1)/2
+indsVec = false(nRunPairs, vecLen);
+runPairCounter = 0;
+for iRun = 1:nRun
+    for jRun = 1:nRun
+        if iRun > jRun  % lower triangular (exclude diagonal)
+            runPairCounter = runPairCounter + 1;
+            M = allRunsSquareMat;
+            % set the iRun x jRun block to ones
+            M((iRun-1)*nElem+1:iRun*nElem, (jRun-1)*nElem+1:jRun*nElem) = 1;
+            % make symmetric
+            M((jRun-1)*nElem+1:jRun*nElem, (iRun-1)*nElem+1:iRun*nElem) = 1;
+            % convert to vector using same ordering as squareform(M)
+            indsVec(runPairCounter, :) = logical(squareform(M));
+        end
+    end
+end
+
+% Organise data and average over run pairs (construct Xmat(:,:,nPairsUsed))
+Xmat = single(zeros(nElem, nElem, length(runPairsToUse)));
+for iRunPair = 1:length(runPairsToUse)
+    runPair = runPairsToUse(iRunPair);
+    Xvec = rdm_dist(indsVec(runPair, :));  % flattened (nElem*nElem) for that pair
+    % reshape to square matrix
+    Xmat(:, :, iRunPair) = reshape(Xvec, nElem, nElem);
+end
+
+% average over the chosen run-pairs, ignoring NaNs
+Xmat = mean(Xmat, 3, 'omitnan');
+
+% Symmetrise by averaging matrix with its transpose (average upper & lower triangles)
+Xmat = mean(cat(3, Xmat, permute(Xmat,[2,1])), 3, 'omitnan');
+
+% Extract diagonal (distances of same condition across runs) and zero diagonal
+indDiag = 1:(nElem+1):nElem*nElem;
+diagDist = Xmat(indDiag);
+Xmat(indDiag) = 0;
+
+% Flatten off-diagonals using squareform, then append diagonal at end (same output format)
+xRunsDist = single(nan(nElem*(nElem-1)/2, 1));
+xRunsDist(:) = squareform(reshape(Xmat, nElem, nElem));
+
+vec2save = cat(1, xRunsDist, diagDist');  % column vector (length nElem*(nElem-1)/2 + nElem)
+if size(vec2save,1) ~= (nElem*(nElem-1)/2 + nElem)
+    warning('Collapsed vector has unexpected length: %d (expected %d)', size(vec2save,1), (nElem*(nElem-1)/2 + nElem));
+end
+
+% Save collapsed vector
+collapsedFile = fullfile(outDirPerROI, sprintf('%s_ROI_RDM_%s_collapsed.mat', roi, distType));
+save(collapsedFile, 'vec2save', 'nElem', 'nRun', 'runPairsToUse', 'created_date');
+fprintf('Saved collapsed ROI RDM (all runs) to: %s\n', collapsedFile);
+
+end

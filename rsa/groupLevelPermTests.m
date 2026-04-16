@@ -1,12 +1,12 @@
-function groupLevelPermTests(rootData,clusterThresh,nPerm,maskName,sl,pathIn)
+function groupLevelPermTests(rootData,clusterThresh,nPerm,maskName,sl,pathIn,varargin)
 
 % sl: either 'surf' or 'vol'. If it's a surface map already projected to
 % MNI volume, it should be 'vol'. 
 
 % rootData=/vols/Scratch/mgarvert/ManyMaps/imagingData;
-% pathIn = '/vols/Scratch/mgarvert/ManyMaps/imagingData/rsa_alon/allSubjStacked/correlation/diff/distRel_diffMaps_xRun1324_smth5_MNI.nii'; 
+% pathIn = '/vols/Scratch/mgarvert/ManyMaps/imagingData/rsa_alon/allSubjStacked/WhBr_surf_r10_v100/diff/distRel_diffMaps_xRun1324_smth5_MNI.nii'; 
 
-% pathIn = '/vols/Scratch/mgarvert/ManyMaps/imagingData/rsa_alon/allSubjStacked/correlation/diff/distRel_sameMap_xRun1324_smth5_rh_allSubj.mgh';
+% pathIn = '/vols/Scratch/mgarvert/ManyMaps/imagingData/rsa_alon/allSubjStacked/WhBr_surf_r10_v100/diff/distRel_sameMap_xRun1324_smth5_rh_allSubj.mgh';
 % maskName for surface blobs: e.g. rh.diff_distRel_diffMaps_xRun1324_smth5_thrsh0p95_intersect_BA24_32
 
 % make sure palm is installed an in path.
@@ -23,8 +23,13 @@ addpath(genpath(palmDir));
 
 
 if strcmp(sl,'surf')
-    hemi = input('hemisphere? ''lh'' or ''rh''');
-    outDir = fullfile(rootData,'rsa_alon','groupStats','correlation','perm',maskName);
+    if isempty(varargin{1})
+        hemi = input('hemisphere? ''lh'' or ''rh''');
+    else 
+        hemi = varargin{1};
+    end
+    disp(['hemi is ', hemi])
+    outDir = fullfile(rootData,'rsa_alon','groupStats', sl,'perm',maskName);
     mkdir(outDir);
     maskFile = fullfile(rootData,'masks','fsaverage',[maskName '.mgh']);
     surface = 'pial';
@@ -50,7 +55,7 @@ if strcmp(sl,'surf')
         eval(str)
         
 else % volumetric
-    outDir = fullfile(rootData,'rsa_alon','groupStats','correlation','perm',maskName);
+    outDir = fullfile(rootData,'rsa_alon','groupStats', sl ,'perm',maskName);
     mkdir(outDir);
     maskFile = fullfile(rootData,'masks',[maskName '.nii']);
     outFile = fullfile(outDir,[pathInFileName '_nPerm' nPerm '_clstrTh' clusterThresh]);

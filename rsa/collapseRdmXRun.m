@@ -1,4 +1,4 @@
-function collapseRdmXRun(rootData,subj,session,distType,nElem,nRun)
+function collapseRdmXRun(rootData,subj,session,sl, distType, nElem,nRun)
 
 fsl_dir = getenv('FSLDIR');
 if isempty(fsl_dir)
@@ -11,7 +11,7 @@ allRunsSquareMat = zeros(nRun*nElem);
 
 
 %%  load the expanded (nRuns*nElem x nRuns*Elem, in squareform vec format) RDM
-rdmDir = fullfile(rootData,'rsa_alon',subj,'dataRdms', distType, session);
+rdmDir = fullfile(rootData,'rsa_alon',subj,'dataRdms', sl, session);
 dataFile = fullfile(rdmDir,['dist_' distType '.nii']);
 outputFile = fullfile(rdmDir,['dist_' distType '_xRunCollapsed.nii']);
 
