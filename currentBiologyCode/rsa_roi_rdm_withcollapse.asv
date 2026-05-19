@@ -1,9 +1,7 @@
 function rsa_roi_rdm_withcollapse(root, subj, roi, distType, session, outDirPerROI)
 
 % important note: there is no need to run this function for the data
-% uploaded online - the RDMs uploaded are the output of this function.
-% Output folder and file names were slightly modified for the onlinre data
-% for clarity. 
+% uploaded online - the RDMs uploaded are the output of this function. Outp
 
 % rsa_roi_rdm_withcollapse  Compute ROI RDM and collapse across runs.
 %

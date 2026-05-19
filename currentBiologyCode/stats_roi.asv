@@ -49,7 +49,7 @@ if (strcmp(model,'relIrrel_sameMap') | strcmp(model,'relIrrel_sameMapNoSameCond'
         end
     end
     
-    %% save the betas to plot nicely in python - commented out for Matlab plotting purposes
+    %% save the betas to plot nicely in python
 %    save(fullfile(rootData,'FigsForCurrentBiologyProofs',['betas_' roi '_' model '.mat']),'betas')
 
 
@@ -273,54 +273,50 @@ elseif strcmp(model, 'distRel_diffMaps')
     fprintf('sess 2 > sess 1: %s\n%s\n one sided p = %.3f\n',model,roi,p)
     
 
-    % %% save taus to plot in python - commented out for Matlab plotting
-    % purposes
-
+    % %% save taus to plot in python - commented out 
     % save(fullfile(rootData,'FigsForCurrentBiologyProofs',['tau_' roi '_' model '.mat']),'tau')
 
-    %% plot taus across sessions
-    tau_box_color = [248 208 165] / 255;
-    tau_point_color = [208 138 78] / 255;
-
+    %% plot taus (session 1 vs session 2)
     figure('Color','w');
-    x = [tau(:,1), tau(:,2)];
 
-    boxplot(x, ...
-        'Labels', {'Session 1','Session 2'}, ...
-        'Symbol','k');   % outliers as black +
-    set(gca, ...
-        'TickDir','out', ...
-        'Box','off', ...
-        'LineWidth',1.2, ...
-        'FontSize',fs);
+    tau1 = tau(:,1);
+    tau2 = tau(:,2);
 
-    ylabel('Kendall''s \tau','FontSize',fs);
-    title('RSA taus','FontSize',fs);
+    tau_means = [mean(tau1), mean(tau2)];
+    tau_sems  = [std(tau1)/sqrt(length(subjects)), std(tau2)/sqrt(length(subjects))];
 
-    % ---- Color the boxes ----
-    h = findobj(gca,'Tag','Box'); % h(2) = session 1, h(1) = session 2
-
-    patch(get(h(2),'XData'), get(h(2),'YData'), tau_box_color, ...
-        'FaceAlpha',0.6, 'EdgeColor','None');
-
-    patch(get(h(1),'XData'), get(h(1),'YData'), tau_box_color, ...
-        'FaceAlpha',0.6, 'EdgeColor','None');
+    b = bar(1:2, tau_means, 'FaceColor','flat');
+    b.CData(1,:) = rel_color;      % session 1
+    b.CData(2,:) = irrel_color;    % session 2
 
     hold on
+    errorbar(1:2, tau_means, tau_sems, 'k', ...
+        'LineStyle','none', 'LineWidth',1.2, 'CapSize',10);
 
-    % ---- Connect paired observations ----
+    % connect paired observations
     for i = 1:length(subjects)
-        plot([1 2], [tau(i,1), tau(i,2)], ...
-            'Color', [0.6 0.6 0.6], 'LineWidth',1);
+        plot([1 2], [tau1(i) tau2(i)], ...
+            'Color', [0.6 0.6 0.6], 'LineWidth', 1);
     end
 
-    % ---- Overlay individual subject points ----
-    scatter(ones(length(subjects),1), tau(:,1), 40, ...
-        'MarkerFaceColor', tau_point_color, ...
-        'MarkerEdgeColor', tau_point_color);
+    % overlay individual subject points
+    scatter(ones(length(subjects),1), tau1, 40, ...
+        'MarkerFaceColor', rel_color, ...
+        'MarkerEdgeColor', rel_color);
 
-    scatter(2*ones(length(subjects),1), tau(:,2), 40, ...
-        'MarkerFaceColor', tau_point_color, ...
-        'MarkerEdgeColor', tau_point_color);
+    scatter(2*ones(length(subjects),1), tau2, 40, ...
+        'MarkerFaceColor', irrel_color, ...
+        'MarkerEdgeColor', irrel_color);
+
+    set(gca, ...
+        'XTick', [1 2], ...
+        'XTickLabel', {'Session 1','Session 2'}, ...
+        'TickDir', 'out', ...
+        'Box', 'off', ...
+        'LineWidth', 1.2, ...
+        'FontSize', fs);
+
+    ylabel('Kendall''s \tau', 'FontSize', fs);
+    title('RSA taus', 'FontSize', fs);
 
 end
